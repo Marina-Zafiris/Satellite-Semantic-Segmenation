@@ -58,32 +58,43 @@ print(np.max(array_qa))
 
 #Making subset
 #When we need random subset can be rand.int in interval
-sub_array_rgb = array_rgb[9500:10000, 9500:10000, :]
-sub_array_pan = array_pan[9500:10000, 9500:10000]
+#sub_array_rgb = array_rgb[9500:10000, 9500:10000, :]
+#sub_array_pan = array_pan[9500:10000, 9500:10000]
 
 # RANDOM SUBSET FUNCTION
+#Making subset
+#When we need random subset can be rand.int in interval
+# x = some size pixels x axis
+# y = some size pixels y axis
+# z = 3 cause we are working with RGB/HSV
 import random
 
 def random_subset(x, y):
     high_x = 15561-x
     high_y = 15381-y
-    x1 = numpy.random.randint(0, high=high_x, size=None, dtype='l')
+    x1 = np.random.randint(0, high=high_x, size=None, dtype='l')
     x2 = x1+x
-    y1 = numpy.random.randint(0, high=high_y, size=None, dtype='l')
+    y1 = np.random.randint(0, high=high_y, size=None, dtype='l')
     y2 = y1+y
     sub_array_qa = array_qa[x1:x2, y1:y2]
     values_qa = list(np.sort(np.unique(sub_array_qa)))
-    values_pass = [2720, 2724, 2738, 2732]
-    while values_qa == values_pass is False: #Need to make into filter(lambda) function w range?
-        high_x = 15561-x
-        high_y = 15381-y
-        x1 = numpy.random.randint(0, high=high_x, size=None, dtype='l')
+    l = list(filter(lambda num: (num > 2738.0 or num < 2720.0), values_qa))
+    
+    while len(l) > 0:
+        x1 = np.random.randint(0, high=high_x, size=None, dtype='l')
         x2 = x1+x
-        y1 = numpy.random.randint(0, high=high_y, size=None, dtype='l')
+        y1 = np.random.randint(0, high=high_y, size=None, dtype='l')
         y2 = y1+y
         sub_array_qa = array_qa[x1:x2, y1:y2]
         values_qa = list(np.sort(np.unique(sub_array_qa)))
-        values_pass = [2720, 2724, 2738, 2732]
+        l = list(filter(lambda num: (num > 2738.0 or num < 2720.0), values_qa))
+    
+    return x1, x2, y1, y2
+
+random_subset(500, 500)
+
+sub_array_rgb = array_rgb[x1:x2, y1:y2, :]
+sub_array_pan = array_pan[x1:x2, y1:y2]
 
 
 # HSV to RGB transform
