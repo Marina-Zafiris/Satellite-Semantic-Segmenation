@@ -4,6 +4,7 @@ from PIL import Image
 import PIL
 import numpy as np
 PIL.Image.MAX_IMAGE_PIXELS = 933120000
+import exifread
 
 # Input/Output
 def get_img_dir(key):
@@ -55,3 +56,12 @@ def get_random_subset_ind(key,Nu,Nv):
         return None
   
   return([nu0,nv0,Nu,Nv])
+
+def get_spatial_info(key,which='pan'):
+  fileName = get_img_path(key,which)
+  f = open(fileName,'rb')
+  tags = exifread.process_file(f)
+  resInfo = tags['Image Tag 0x830E'].values
+  offsetInfo = tags['Image Tag 0x8482']
+  refFrameInfo = tags['Image Tag 0x87B1']
+  return((resInfo,offsetInfo,refFrameInfo))

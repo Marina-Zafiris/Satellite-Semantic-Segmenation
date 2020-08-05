@@ -17,5 +17,10 @@ key = '110076_20170816_20170825_01'
 #print(qa.shape)
 
 # Draw 100 random subset indices
-for n in range(0,100):
-  print(seg.get_random_subset_ind(key,75,50))
+
+#for n in range(0,100):
+#  print(seg.get_random_subset_ind(key,75,50))
+
+print(seg.get_spatial_info(key,'pan'))
+print(seg.get_spatial_info(key,'qa'))
+print(seg.get_spatial_info(key,'red'))
