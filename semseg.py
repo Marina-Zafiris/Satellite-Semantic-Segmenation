@@ -65,3 +65,28 @@ def get_spatial_info(key,which='pan'):
   offsetInfo = tags['Image Tag 0x8482']
   refFrameInfo = tags['Image Tag 0x87B1']
   return((resInfo,offsetInfo,refFrameInfo))
+
+def get_pan_subset(key,subset_ind):
+  # The subsetting is defined with respect to the multispectral bands
+  pan = get_img(key)
+
+  # Explicitly unpack the subset info
+  u0 = subset_ind[0]
+  v0 = subset_ind[1]
+  du = subset_ind[2]
+  dv = subset_ind[3]
+
+  return(pan[slice(2*u0,2*(u0+du)),slice(2*v0,2*(v0+dv))])
+
+def get_ms_subset(key,subset_ind,which):
+  # The subsetting is defined with respect to the multispectral bands
+  # should error check the values of which, but not high priority
+  ms = get_img(key,which)
+
+  # Explicitly unpack the subset info
+  u0 = subset_ind[0]
+  v0 = subset_ind[1]
+  du = subset_ind[2]
+  dv = subset_ind[3]
+ 
+  return(ms[slice(u0,u0+du),slice(v0,v0+dv)])
