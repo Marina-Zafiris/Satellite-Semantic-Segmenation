@@ -85,7 +85,7 @@ def qa_check_sub(array_qa, x, y, rgb, pan):
     return array_rgb, array_pan, x1, x2, y1, y2
 
 # Normalizes RGB and Pan subsets, resizes RGB subset to fit Pan
-def transform_rgb(array_rgb, array_pan)
+def transform_rgb(array_rgb, array_pan):
 
     # max pixel to normalize values
     max_pix = np.max(array_rgb)
