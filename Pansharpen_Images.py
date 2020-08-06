@@ -13,12 +13,12 @@ from skimage.transform import resize
 from skimage.color import rgb2hsv, hsv2rgb
 from skimage.io import imsave
 
-# define the file names for RGB and panchromatic (pan) images
-def read_files(ID):
+# Defines the file names for RGB and panchromatic (pan) images and creates arrays
+def read_files(ID, path):
     
-    file_rgb = "./data/"+ID+"/"+ID+"_RGB.tif"
-    file_pan = "./data/"+ID+"/"+ID+"_B8.tif"
-    file_qa = "./data/"+ID+"/"+ID+"_BQA.tif"
+    file_rgb = path + "/" + ID + "_RGB.tif"
+    file_pan = path + "/" + ID + "_B8.tif"
+    file_qa = path + "/" + ID + "_BQA.tif"
     # load the data
     try:
         data_rgb = gdal.Open(file_rgb, GA_ReadOnly)
@@ -37,35 +37,29 @@ def read_files(ID):
     rgb[:,:,1] = data_rgb.GetRasterBand(2).ReadAsArray().astype(float)
     rgb[:,:,2] = data_rgb.GetRasterBand(1).ReadAsArray().astype(float)
     pan = data_pan.GetRasterBand(1).ReadAsArray().astype(float)
-    qa = data_qa.GetRasterBand(1).ReadAsArray().astype(float)
+    array_qa = data_qa.GetRasterBand(1).ReadAsArray().astype(float)
     
-    # max pixel to normalize values
-    max_pix = np.max(rgb) #np.max(array_rgb)
+    return rgb, pan, array_qa
 
-    # normalize RGB and pan
-    array_rgb = rgb / max_pix
-    array_pan = pan / max_pix
-
-    # must resize in order to replace value later
-    columns = data_pan.RasterXSize
-    rows = data_pan.RasterYSize
-    array_rgb = resize(array_rgb, (rows, columns))
-    array_qa = qa
-    return array_rgb, array_pan, array_qa
-
-def random_subset(array_qa, x, y):
+# Checks the QA subset for approved pixel values, subsets RGB, transforms bounds, subsets Pan
+def qa_check_sub(array_qa, x, y, rgb, pan):
+    
     # Creating buffer zone so we never pick up a number that would force us out of bounds
     high_x = array_qa.shape[1]-x 
     high_y = array_qa.shape[0]-y
+    
     # Selecting random subset
     x1 = np.random.randint(0, high=high_x, size=None, dtype='l')
     x2 = x1+x
     y1 = np.random.randint(0, high=high_y, size=None, dtype='l')
     y2 = y1+y
     sub_array_qa = array_qa[x1:x2, y1:y2]
+    
     # Unique pixel values
     values_qa = list(np.sort(np.unique(sub_array_qa)))
+    
     # Checks that above pixel values in subset pass QA check of values we want
+    
     values_approved = [2720.0]
     l = list(filter(lambda num: (num not in values_approved), values_qa))
     
@@ -79,23 +73,48 @@ def random_subset(array_qa, x, y):
         values_qa = list(np.sort(np.unique(sub_array_qa)))
         l = list(filter(lambda num: (num not in values_approved), values_qa))
     
-    # Array bounds x1, x2, y1, y2 transformed to meet MS transformation
+    # Subsetting RGB before transformation
+    array_rgb = rgb[x1:x2, y1:y2]
+    
+    # Array bounds x1, x2, y1, y2 transformed to meet Pan Subset
     x1, x2, y1, y2 = 2*x1, 2*x2, 2*y1, 2*y2
-    print("done sub")
-    return x1, x2, y1, y2
+    
+    # Subsetting Pan
+    array_pan = pan[x1:x2, y1:y2]
+    
+    return array_rgb, array_pan, x1, x2, y1, y2
 
-def rgb_pan(array_rgb, array_pan, x1, x2, y1, y2):
-    # Subsetting 
-    sub_array_rgb = array_rgb[x1:x2, y1:y2, :]
-    sub_array_pan = array_pan[x1:x2, y1:y2]
-    # HSV to RGB transform
-    array_hsv = rgb2hsv(sub_array_rgb)
-    # Replacing value with pan
-    array_hsv[:, :, 2] = sub_array_pan
+# Normalizes RGB and Pan subsets, resizes RGB subset to fit Pan
+def transform_rgb(array_rgb, array_pan)
+
+    # max pixel to normalize values
+    max_pix = np.max(array_rgb)
+
+    # normalize RGB and pan
+    array_rgb = array_rgb / max_pix
+    array_pan = array_pan / max_pix
+
+    # must resize in order to replace value later
+    columns = array_pan.shape[1]
+    rows = array_pan.shape[0]
+    array_rgb = resize(array_rgb, (rows, columns))
+    
+    return array_rgb, array_pan
+
+# RGB to HSV transformation, to replace value with pan band
+def pansharpening(array_rgb, array_pan):
+
+    # RGB to HSV transformation
+    array_hsv = rgb2hsv(array_rgb)
+    
+    # Replacing "value" with pan subset
+    array_hsv[:, :, 2] = array_pan
+    
     # Converting back to RGB
     pansharpend_rgb = hsv2rgb(array_hsv)
-    print("done pan")
+    
     return pansharpend_rgb
+
 
 
 # Amazon Scene ID Directory
@@ -104,11 +123,11 @@ s3_scenes = pd.read_csv('http://landsat-pds.s3.amazonaws.com/c1/L8/scene_list.gz
 # Filtering for our specified scene
 aus_desert = s3_scenes[(s3_scenes['productId'].str[:16].str.contains('LC08_L1TP_109076')) & (s3_scenes['cloudCover'] < 10)]
 
-n = 5 #Number of Sample images wanting to create
+n = 5 # Number of Sample images wanting to create
 
 chosen_idx = np.random.choice(len(aus_desert), replace = True, size = n)
 
-sample = aus_desert.iloc[chosen_idx]
+sample = aus_desert.iloc[chosen_idx] 
 
 # Dimensions of Wanted Images
 x = 500
@@ -118,15 +137,19 @@ for index, row in sample.iterrows():
     
     # ID is also the name of given image folder
     ID = row.productId
+    path = "./data/"+ID
     
-    array_rgb, array_pan, array_qa = read_files(ID)
+    rgb, pan, array_qa = read_files(ID, path)
     print(ID+": Done read_files")
     
-    x1, x2, y1, y2 = random_subset(array_qa, x, y)
-    print(ID+": Done random_subset")
+    array_rgb, array_pan, x1, x2, y1, y2 = qa_check_sub(array_qa, x, y, rgb, pan)
+    print(ID+": Done qa_check_sub")
     
-    pansharpend_rgb = rgb_pan(array_rgb, array_pan, x1, x2, y1, y2)
-    print(ID+": Done rgb_pan")
+    array_rgb, array_pan = transform_rgb(array_rgb, array_pan)
+    print(ID+": Done transform_rgb")
+    
+    pansharpend_rgb = pansharpening(array_rgb, array_pan)
+    print(ID+": Done pansharpening")
     
     file_name = ID+"_"+str(x1)+"_"+str(x2)+"_"+str(y1)+"_"+str(y2)+".jpg"
     imsave(fname=file_name, arr=pansharpend_rgb)
